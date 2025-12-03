@@ -163,7 +163,7 @@ uninstall_tool() {
     if [ "$(id -u)" -ne 0 ]; then
         echo -e "\n${YELLOW}[提示] 需要管理员权限完成卸载，请输入系统密码${RESET}"
         # 用 sudo -S 读取密码，兼容非交互式输入
-        if ! read -s password; then
+        if ! read -s -p "密码：" password; then
             echo -e "\n${RED}[错误] 密码输入失败，卸载终止${RESET}"
             exit 1
         fi
