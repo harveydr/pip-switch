@@ -1,10 +1,9 @@
 #!/bin/bash
 set -euo pipefail
 
-# 配置（已适配你的仓库）
+# 配置（适配你的仓库）
 SCRIPT_NAME="pip-switch"
 GLOBAL_BIN="/usr/local/bin"
-# 主脚本的原始文件地址
 SCRIPT_URL="https://raw.githubusercontent.com/harveydr/pip-switch/main/pip-switch"
 INSTALL_PATH="${GLOBAL_BIN}/${SCRIPT_NAME}"
 
@@ -14,74 +13,90 @@ RED="\033[31m"
 YELLOW="\033[33m"
 RESET="\033[0m"
 
-# 检查并切换到管理员权限（支持管道模式输入密码）
-check_root() {
-    if [ "$(id -u)" -ne 0 ]; then
-        echo -e "${YELLOW}[提示] 需要管理员权限，请输入你的系统密码：${RESET}"
-        # 隐藏密码输入，适配管道模式
-        if ! read -s password; then
-            echo -e "\n${RED}[错误] 密码输入失败，请重新执行命令${RESET}"
-            exit 1
-        fi
-        # 以 root 权限重新执行脚本
-        echo "$password" | sudo -S bash -c "$(cat "$0")" "$@"
-        exit $?
+# 核心：权限预授权（模仿 Homebrew，避免管道中 read 输入）
+check_and_prompt_sudo() {
+    # 先检查是否已有 root 权限
+    if [ "$(id -u)" -eq 0 ]; then
+        return 0
     fi
+
+    # 提示用户需要权限，用 sudo -v 预授权（会弹出系统密码输入框，兼容管道）
+    echo -e "${YELLOW}==> 需要管理员权限安装 ${SCRIPT_NAME}，请输入你的系统密码（输入时不显示字符）${RESET}"
+    if ! sudo -v; then
+        echo -e "\n${RED}==> 密码输入错误或取消授权，安装失败${RESET}"
+        exit 1
+    fi
+
+    # 保持 sudo 权限会话（每 60 秒刷新一次，避免安装中途权限失效）
+    while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
 }
 
-# 安装逻辑
-install() {
-    echo -e "${GREEN}[开始安装] pip-switch 工具${RESET}"
-    
-    # 步骤1：下载主脚本到全局目录
-    echo -e "[步骤1/3] 下载脚本..."
+# 下载主脚本（用 sudo 确保写入全局目录权限）
+download_script() {
+    echo -e "${GREEN}==> 正在下载 ${SCRIPT_NAME} 主脚本...${RESET}"
     if command -v curl &> /dev/null; then
-        curl -fsSL "$SCRIPT_URL" -o "$INSTALL_PATH"
+        sudo curl -fsSL --progress-bar "$SCRIPT_URL" -o "$INSTALL_PATH"
     elif command -v wget &> /dev/null; then
-        wget -q "$SCRIPT_URL" -O "$INSTALL_PATH"
+        sudo wget -q --show-progress "$SCRIPT_URL" -O "$INSTALL_PATH"
     else
-        echo -e "${RED}[错误] 未找到 curl 或 wget，请先安装其中一个工具${RESET}"
+        echo -e "${RED}==> 错误：未找到 curl 或 wget，请先安装其中一个工具${RESET}"
         exit 1
     fi
-    
-    # 步骤2：设置脚本执行权限
-    echo -e "[步骤2/3] 设置执行权限..."
-    chmod +x "$INSTALL_PATH"
-    
-    # 步骤3：验证安装是否成功
-    echo -e "[步骤3/3] 验证安装..."
+}
+
+# 设置执行权限
+set_permissions() {
+    echo -e "${GREEN}==> 正在设置全局执行权限...${RESET}"
+    sudo chmod +x "$INSTALL_PATH"
+}
+
+# 验证安装
+verify_install() {
+    echo -e "${GREEN}==> 正在验证安装...${RESET}"
     if command -v "$SCRIPT_NAME" &> /dev/null; then
-        echo -e "${GREEN}[安装成功！] 输入 ${YELLOW}${SCRIPT_NAME}${GREEN} 即可使用工具${RESET}"
+        echo -e "\n${GREEN}✅ 安装成功！${RESET}"
+        echo -e "${YELLOW}==> 使用方法：在终端输入 ${SCRIPT_NAME} 即可启动工具${RESET}"
     else
-        echo -e "${YELLOW}[警告] 脚本已安装，但未在 PATH 中检测到${RESET}"
-        echo -e "请手动添加 PATH：export PATH=\"${GLOBAL_BIN}:\$PATH\""
-        echo -e "然后执行：source ~/.bashrc 或 source ~/.zshrc"
+        echo -e "\n${YELLOW}⚠️  脚本已安装，但未在 PATH 中检测到${RESET}"
+        echo -e "==> 请执行以下命令刷新 PATH："
+        echo -e "export PATH=\"${GLOBAL_BIN}:\$PATH\" && source ~/.zshrc"
+        echo -e "==> 之后输入 ${SCRIPT_NAME} 即可使用"
     fi
 }
 
-# 卸载逻辑
+# 卸载逻辑（兼容一键卸载）
 uninstall() {
-    echo -e "${YELLOW}[开始卸载] pip-switch 工具${RESET}"
-    
+    echo -e "${YELLOW}==> 正在卸载 ${SCRIPT_NAME} 工具...${RESET}"
     if [ -f "$INSTALL_PATH" ]; then
-        rm -f "$INSTALL_PATH"
-        echo -e "${GREEN}[卸载成功！] 已删除全局命令：${INSTALL_PATH}${RESET}"
+        sudo rm -f "$INSTALL_PATH"
+        echo -e "${GREEN}✅ 卸载成功！已删除全局命令：${INSTALL_PATH}${RESET}"
     else
-        echo -e "${RED}[错误] 未检测到 pip-switch 已安装${RESET}"
+        echo -e "${RED}❌ 错误：未检测到 ${SCRIPT_NAME} 已安装${RESET}"
         exit 1
     fi
 }
 
-# 主逻辑（区分安装/卸载）
+# 主流程
 main() {
-    check_root "$@"
-    
+    # 欢迎信息（模仿 Homebrew 风格）
+    echo -e "${GREEN}========================================"${RESET}
+    echo -e "${YELLOW}  ${SCRIPT_NAME} 一键安装工具 v1.0${RESET}"
+    echo -e "${GREEN}========================================"${RESET}
+
+    # 区分安装/卸载
     if [ $# -eq 1 ] && [ "$1" = "uninstall" ]; then
+        check_and_prompt_sudo
         uninstall
         exit 0
     fi
-    
-    install
+
+    # 安装流程
+    check_and_prompt_sudo
+    download_script
+    set_permissions
+    verify_install
+
+    echo -e "\n${GREEN}🎉 感谢使用 ${SCRIPT_NAME}！${RESET}"
 }
 
 main "$@"
