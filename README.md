@@ -20,7 +20,7 @@
 
 ## 📸 效果演示
 （替换为你的工具运行截图，增强直观性）
-![pip-switch 演示](https://user-images.githubusercontent.com/harveydr/blob/main/screen.png)
+![pip-switch 演示](./assets/screen.png)
 
 
 ## 🚀 一键安装
