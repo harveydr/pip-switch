@@ -20,7 +20,7 @@
 
 ## 📸 效果演示
 （替换为你的工具运行截图，增强直观性）
-![pip-switch 演示](https://user-images.githubusercontent.com/你的GitHubID/你的截图文件名.png)
+![pip-switch 演示](https://user-images.githubusercontent.com/harveydr/screen.png)
 
 
 ## 🚀 一键安装
@@ -63,7 +63,7 @@
 ## 🗑️ 一键卸载（无残留）
 执行以下命令即可彻底卸载，无需手动清理文件：
 ```bash
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/harveydr/pip-switch/main/install.sh)" uninstall
+pip-switch uninstall
 ```
 
 
@@ -75,11 +75,7 @@
 
 ## ❌ 常见问题排查
 ### 1. 安装时提示“无法访问 raw.githubusercontent.com”
-解决：改用镜像地址安装（绕过网络限制）
-```bash
-# 镜像地址一键安装
-/bin/bash -c "$(curl -fsSL https://raw.fastgit.org/harveydr/pip-switch/main/install.sh)"
-```
+解决：采用科学上网工具。
 
 ### 2. 执行 `pip-switch` 提示“command not found”
 解决：手动刷新 PATH 配置（适配 zsh/bash）
