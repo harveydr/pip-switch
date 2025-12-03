@@ -23,12 +23,13 @@
 
 ### 方式1：用 curl 安装
 ```bash
-curl -fsSL https://raw.githubusercontent.com/你的GitHub用户名/pip-switch/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/harveydr/pip-switch/main/install.sh | bash
 ```
 
 ### 方式2：用 wget 安装
 ```bash
-wget -qO- https://raw.githubusercontent.com/你的GitHub用户名/pip-switch/main/install.sh | bash
+wget -qO- https://raw.githubusercontent.com/harveydr/pip-switch/main/install.sh | bash
+
 ```
 
 ## 📖 使用方法

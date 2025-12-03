@@ -4,7 +4,7 @@ set -euo pipefail
 # 配置
 SCRIPT_NAME="pip-switch"
 GLOBAL_BIN="/usr/local/bin"
-SCRIPT_URL="https://raw.githubusercontent.com/你的用户名/pip-switch/main/pip-switch"  # 替换为你的 GitHub 地址
+SCRIPT_URL="https://raw.githubusercontent.com/harveydr/pip-switch/main/pip-switch"  # 替换为你的 GitHub 地址
 INSTALL_PATH="${GLOBAL_BIN}/${SCRIPT_NAME}"
 
 # 颜色
