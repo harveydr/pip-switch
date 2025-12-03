@@ -1,0 +1,161 @@
+#!/bin/bash
+set -euo pipefail
+
+# 样式配置
+BOLD="\033[1m"
+GREEN="\033[32m"
+YELLOW="\033[33m"
+RED="\033[31m"
+RESET="\033[0m"
+
+# 源列表（名称|地址）
+PIP_SOURCES=(
+    "默认源|https://pypi.org/simple/"
+    "阿里云|https://mirrors.aliyun.com/pypi/simple/"
+    "清华大学|https://pypi.tuna.tsinghua.edu.cn/simple/"
+    "豆瓣|https://pypi.doubanio.com/simple/"
+    "腾讯云|https://mirrors.cloud.tencent.com/pypi/simple/"
+    "华为云|https://repo.huaweicloud.com/repository/pypi/simple/"
+    "中科大|https://pypi.mirrors.ustc.edu.cn/simple/"
+)
+
+detect_pip() {
+    if command -v pip3 &> /dev/null; then
+        PIP_CMD="pip3"
+    elif command -v pip &> /dev/null; then
+        PIP_CMD="pip"
+    else
+        echo -e "${BOLD}${RED}[错误] 未找到pip/pip3，请先安装 Python 和 pip${RESET}"
+        exit 1
+    fi
+    echo -e "[信息] 检测到可用 pip 命令：${PIP_CMD}"
+    sleep 1
+}
+
+# 新增：通过源地址匹配源名称
+get_source_name_by_url() {
+    local target_url=$1
+    for source_str in "${PIP_SOURCES[@]}"; do
+        local name=$(echo "$source_str" | cut -d'|' -f1)
+        local url=$(echo "$source_str" | cut -d'|' -f2)
+        if [ "$url" = "$target_url" ]; then
+            echo "$name"
+            return
+        fi
+    done
+    # 未匹配到则显示“自定义源”
+    echo "自定义源"
+}
+
+# 重构查看当前源：显示“源名称：地址”
+show_current_source() {
+    echo -e "\n${BOLD}${YELLOW}[ℹ️ 当前 ${PIP_CMD} 软件源]${RESET}"
+    local current_url=$(${PIP_CMD} config get global.index-url 2>/dev/null)
+    if [ -n "$current_url" ]; then
+        local source_name=$(get_source_name_by_url "$current_url")
+        echo -e "  ${BOLD}${source_name}：${GREEN}$current_url${RESET}"
+    else
+        # 默认源单独处理
+        echo -e "  ${BOLD}默认源：${GREEN}https://pypi.org/simple/${RESET}"
+    fi
+    sleep 1
+}
+
+temp_switch() {
+    echo -e "\n${BOLD}${YELLOW}========================================"${RESET}
+    echo -e "${BOLD}[信息] 临时切换源（仅当前终端生效）${RESET}"
+    echo -e "${BOLD}${YELLOW}========================================"${RESET}
+    echo "可用源列表："
+    list_sources
+    read -p $'\n请输入要切换的源序号（例如 1）：' choice
+    validate_choice "$choice"
+    local source_str=${PIP_SOURCES[$((choice-1))]}
+    local source_name=$(echo "$source_str" | cut -d'|' -f1)
+    local source_url=$(echo "$source_str" | cut -d'|' -f2)
+    
+    echo -e "\n${BOLD}${GREEN}[✅ 成功] 临时源已切换为：${RESET}"
+    echo -e "  ${BOLD}${source_name}：${GREEN}$source_url${RESET}"
+    echo -e "\n${BOLD}${YELLOW}使用示例：${RESET} ${PIP_CMD} install 包名"
+    echo -e "${BOLD}${YELLOW}说明：${RESET} 关闭终端后恢复默认源，仅对当前终端有效"
+    export PIP_INDEX_URL="$source_url"
+    sleep 1
+}
+
+permanent_switch() {
+    echo -e "\n${BOLD}${YELLOW}========================================"${RESET}
+    echo -e "${BOLD}[信息] 永久切换源（全局生效，写入 pip 配置）${RESET}"
+    echo -e "${BOLD}${YELLOW}========================================"${RESET}
+    echo "可用源列表："
+    list_sources
+    read -p $'\n请输入要切换的源序号（例如 1）：' choice
+    validate_choice "$choice"
+    local source_str=${PIP_SOURCES[$((choice-1))]}
+    local source_name=$(echo "$source_str" | cut -d'|' -f1)
+    local source_url=$(echo "$source_str" | cut -d'|' -f2)
+    
+    ${PIP_CMD} config set global.index-url "$source_url"
+    echo -e "\n${BOLD}${GREEN}[✅ 成功] 永久源已切换为：${RESET}"
+    echo -e "  ${BOLD}${source_name}：${GREEN}$source_url${RESET}"
+    echo -e "\n${BOLD}${YELLOW}验证方式：${RESET} 执行 ${PIP_CMD} config get global.index-url 查看"
+    sleep 1
+}
+
+restore_default() {
+    echo -e "\n${BOLD}${YELLOW}========================================"${RESET}
+    echo -e "${BOLD}[信息] 正在恢复默认源（PyPI 官方源）${RESET}"
+    echo -e "${BOLD}${YELLOW}========================================"${RESET}
+    ${PIP_CMD} config unset global.index-url 2>/dev/null || true
+    echo -e "\n${BOLD}${GREEN}[✅ 成功] 已恢复为：${RESET}"
+    echo -e "  ${BOLD}默认源：${GREEN}https://pypi.org/simple/${RESET}"
+    sleep 1
+}
+
+list_sources() {
+    for i in "${!PIP_SOURCES[@]}"; do
+        local idx=$((i+1))
+        local name=$(echo "${PIP_SOURCES[$i]}" | cut -d'|' -f1)
+        local url=$(echo "${PIP_SOURCES[$i]}" | cut -d'|' -f2)
+        echo -e "  ${BOLD}${idx}.${RESET} ${name} → $url"
+    done
+}
+
+validate_choice() {
+    local choice=$1
+    local max_idx=${#PIP_SOURCES[@]}
+    if ! [[ "$choice" =~ ^[0-9]+$ ]] || [ "$choice" -lt 1 ] || [ "$choice" -gt "$max_idx" ]; then
+        echo -e "\n${BOLD}${RED}[错误] 无效序号！请输入 1-${max_idx} 之间的数字${RESET}"
+        sleep 1
+        exit 1
+    fi
+}
+
+show_menu() {
+    echo -e "\n${BOLD}${YELLOW}========================================"${RESET}
+    echo -e "${BOLD}${YELLOW}          pip 软件源切换工具${RESET}"
+    echo -e "${BOLD}${YELLOW}========================================"${RESET}
+    echo -e "  ${BOLD}1.${RESET} 临时切换源（当前终端生效）"
+    echo -e "  ${BOLD}2.${RESET} 永久切换源（全局生效）"
+    echo -e "  ${BOLD}3.${RESET} 恢复默认源（PyPI 官方）"
+    echo -e "  ${BOLD}4.${RESET} 查看当前源"
+    echo -e "  ${BOLD}5.${RESET} 退出"
+    echo -e "${BOLD}${YELLOW}========================================"${RESET}
+    echo
+}
+
+main() {
+    detect_pip
+    while true; do
+        show_menu
+        read -p "请选择操作（1-5）：" action
+        case "$action" in
+            1) temp_switch ;;
+            2) permanent_switch ;;
+            3) restore_default ;;
+            4) show_current_source ;;
+            5) echo -e "\n${BOLD}${GREEN}[退出] 感谢使用！${RESET}"; exit 0 ;;
+            *) echo -e "\n${BOLD}${RED}[错误] 无效选择！请输入 1-5 之间的数字${RESET}"; sleep 1 ;;
+        esac
+    done
+}
+
+main
