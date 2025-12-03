@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-# 配置（适配你的仓库）
+# 配置（仅保留 GitHub 源）
 SCRIPT_NAME="pip-switch"
 GLOBAL_BIN="/usr/local/bin"
 SCRIPT_URL="https://raw.githubusercontent.com/harveydr/pip-switch/main/pip-switch"
@@ -15,25 +15,21 @@ RESET="\033[0m"
 
 # 核心：权限预授权（模仿 Homebrew，避免管道中 read 输入）
 check_and_prompt_sudo() {
-    # 先检查是否已有 root 权限
     if [ "$(id -u)" -eq 0 ]; then
         return 0
     fi
-
-    # 提示用户需要权限，用 sudo -v 预授权（会弹出系统密码输入框，兼容管道）
     echo -e "${YELLOW}==> 需要管理员权限安装 ${SCRIPT_NAME}，请输入你的系统密码（输入时不显示字符）${RESET}"
     if ! sudo -v; then
         echo -e "\n${RED}==> 密码输入错误或取消授权，安装失败${RESET}"
         exit 1
     fi
-
-    # 保持 sudo 权限会话（每 60 秒刷新一次，避免安装中途权限失效）
+    # 保持 sudo 权限会话（每 60 秒刷新一次）
     while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
 }
 
 # 下载主脚本（用 sudo 确保写入全局目录权限）
 download_script() {
-    echo -e "${GREEN}==> 正在下载 ${SCRIPT_NAME} 主脚本...${RESET}"
+    echo -e "${GREEN}==> 正在从 GitHub 下载 ${SCRIPT_NAME} 主脚本...${RESET}"
     if command -v curl &> /dev/null; then
         sudo curl -fsSL --progress-bar "$SCRIPT_URL" -o "$INSTALL_PATH"
     elif command -v wget &> /dev/null; then
@@ -50,12 +46,14 @@ set_permissions() {
     sudo chmod +x "$INSTALL_PATH"
 }
 
-# 验证安装
+# 验证安装（新增卸载命令提示）
 verify_install() {
     echo -e "${GREEN}==> 正在验证安装...${RESET}"
     if command -v "$SCRIPT_NAME" &> /dev/null; then
         echo -e "\n${GREEN}✅ 安装成功！${RESET}"
-        echo -e "${YELLOW}==> 使用方法：在终端输入 ${SCRIPT_NAME} 即可启动工具${RESET}"
+        echo -e "${YELLOW}==> 常用命令：${RESET}"
+        echo -e "  1. 启动工具：${SCRIPT_NAME}"
+        echo -e "  2. 一键卸载：${SCRIPT_NAME} uninstall"
     else
         echo -e "\n${YELLOW}⚠️  脚本已安装，但未在 PATH 中检测到${RESET}"
         echo -e "==> 请执行以下命令刷新 PATH："
@@ -64,7 +62,7 @@ verify_install() {
     fi
 }
 
-# 卸载逻辑（兼容一键卸载）
+# 卸载逻辑（兼容旧的 curl 卸载方式，主要卸载逻辑在主脚本）
 uninstall() {
     echo -e "${YELLOW}==> 正在卸载 ${SCRIPT_NAME} 工具...${RESET}"
     if [ -f "$INSTALL_PATH" ]; then
@@ -80,10 +78,10 @@ uninstall() {
 main() {
     # 欢迎信息（模仿 Homebrew 风格）
     echo -e "${GREEN}========================================"${RESET}
-    echo -e "${YELLOW}  ${SCRIPT_NAME} 一键安装工具 v1.0${RESET}"
+    echo -e "${YELLOW}  ${SCRIPT_NAME} 一键安装工具 v1.0（GitHub 版）${RESET}"
     echo -e "${GREEN}========================================"${RESET}
 
-    # 区分安装/卸载
+    # 区分安装/卸载（兼容旧方式）
     if [ $# -eq 1 ] && [ "$1" = "uninstall" ]; then
         check_and_prompt_sudo
         uninstall
